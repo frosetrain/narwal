@@ -1,22 +1,31 @@
 class FloorPlan {
-	constructor() {
-		this.obstacles = [];
-		this.itemsTotalSize = 0;
-	}
+    constructor() {
+        this.obstacles = [];
+        this.itemsTotalSize = 0;
+        this.walls = [];
+    }
 
-	createObstacles() {
-		let light = new Sprite(width - 50, height - 50, 100, 100);
-		light.shapeColor = color(165, 42, 42);
-		this.itemsTotalSize += 100 * 100;
-		light.collider = "k";
-
-		let light2 = new Sprite(width - 150, 300, 100, 100);
-		light2.shapeColor = color(165, 42, 42);
-		this.itemsTotalSize += 100 * 100;
-		light2.mass = 100000;
-		light2.collider = "k";
-
-		this.obstacles.push(light);
-		this.obstacles.push(light2);
-	}
+    createObstacles() {
+        for (let i = 0; i < 0; i++) {
+            let x = random(width);
+            let y = random(height);
+            let w = random(100, 200);
+            let h = random(100, 200);
+            if (y - h / 2 < 100 && x + w / 2 > width - 100) {
+                x = random(width - w - 100);
+            }
+            let obstacle = new Sprite(x, y, w, h, "none");
+            obstacle.shapeColor = color(0);
+            this.obstacles.push(obstacle);
+            this.walls.push(new Wall(x - w / 2, y - h / 2, x + w / 2, y - h / 2));
+            this.walls.push(new Wall(x - w / 2, y - h / 2, x - w / 2, y + h / 2));
+            this.walls.push(new Wall(x + w / 2, y - h / 2, x + w / 2, y + h / 2));
+            this.walls.push(new Wall(x - w / 2, y + h / 2, x + w / 2, y + h / 2));
+            this.itemsTotalSize += w * h;
+        }
+        this.walls.push(new Wall(0, 0, width, 0));
+        this.walls.push(new Wall(width, 0, width, height));
+        this.walls.push(new Wall(width, height, 0, height));
+        this.walls.push(new Wall(0, height, 0, 0));
+    }
 }
