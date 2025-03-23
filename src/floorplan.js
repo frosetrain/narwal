@@ -6,7 +6,7 @@ class FloorPlan {
     }
 
     createObstacles() {
-        for (let i = 0; i < 0; i++) {
+        for (let i = 0; i < 7; i++) {
             let x = random(width);
             let y = random(height);
             let w = random(100, 200);

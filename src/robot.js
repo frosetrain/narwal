@@ -1,6 +1,6 @@
 class Robot {
     constructor() {
-        this.sprite = new Sprite(width - 30, 30);
+        this.sprite = new Sprite(width, 30);
         this.sprite.rotation = PI;
         this.speed = 2;
 
@@ -24,7 +24,20 @@ class Robot {
 
         this.state = "forward";
         this.stuckCount = 0;
-        this.pTrailPoint = null;
+        this.pTrailLeft = {
+            x: this.sprite.x,
+            y: this.sprite.y + 25,
+        };
+        this.pTrailRight = {
+            x: this.sprite.x,
+            y: this.sprite.y - 25,
+        };
+
+        this.changeSide = createButton("change side");
+        this.changeSide.mousePressed(() => {
+            this.right = !this.right;
+        });
+        this.right = true;
 
         this.sprite.draw = () => {
             fill(0);
@@ -66,9 +79,10 @@ class Robot {
                     this.stuckCount = 0;
                     console.log("stuck");
                 }
-                let error45 = this.distances["45"] - 42.426 || 0;
-                let error90 = this.distances["90"] - 30 || 0;
+                let error45 = this.distances[this.right ? "45" : "-45"] - 42.426 || 0;
+                let error90 = this.distances[this.right ? "90" : "-90"] - 30 || 0;
                 this.rotate(0.005 * min(error45, error90));
+                // this.rotate(0.005 * error45);
             } else if (this.state === "stuck") {
                 this.sprite.speed = 0;
                 this.rotate(-PI / 60);
@@ -90,18 +104,40 @@ class Robot {
                 this.trail.push({ x: this.sprite.x, y: this.sprite.y });
             }
             if (frameCount % 15 === 0) {
-                if (this.pTrailPoint) {
+                let leftEdge = createVector(1, 1);
+                leftEdge.setHeading(this.sprite.rotation - HALF_PI);
+                leftEdge.setMag(25);
+                let rightEdge = createVector(1, 1);
+                rightEdge.setHeading(this.sprite.rotation + HALF_PI);
+                rightEdge.setMag(25);
+                if (this.pTrailLeft && this.pTrailRight) {
                     floorPlan.walls.push(
                         new Wall(
-                            this.pTrailPoint.x,
-                            this.pTrailPoint.y,
-                            this.sprite.x,
-                            this.sprite.y,
+                            this.pTrailLeft.x,
+                            this.pTrailLeft.y,
+                            this.sprite.x + leftEdge.x,
+                            this.sprite.y + leftEdge.y,
+                            false,
+                        ),
+                    );
+                    floorPlan.walls.push(
+                        new Wall(
+                            this.pTrailRight.x,
+                            this.pTrailRight.y,
+                            this.sprite.x + rightEdge.x,
+                            this.sprite.y + rightEdge.y,
                             false,
                         ),
                     );
                 }
-                this.pTrailPoint = { x: this.sprite.x, y: this.sprite.y };
+                this.pTrailLeft = {
+                    x: this.sprite.x + leftEdge.x,
+                    y: this.sprite.y + leftEdge.y,
+                };
+                this.pTrailRight = {
+                    x: this.sprite.x + rightEdge.x,
+                    y: this.sprite.y + rightEdge.y,
+                };
             }
         };
     }
@@ -151,6 +187,9 @@ class Robot {
                 if (pt) {
                     const d = p5.Vector.dist(this.sprite.pos, pt);
                     if (d < overallRecord) {
+                        if (!wall.fixed && d < 25) {
+                            break;
+                        }
                         overallClosest = pt;
                         overallRecord = d;
                     }
