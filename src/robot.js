@@ -2,16 +2,15 @@ class Robot {
     constructor() {
         this.sprite = new Sprite(width, 30);
         this.sprite.rotation = PI;
-        this.speed = 2;
-
         this.r = 25;
+        this.maxSpeed = 2;
         this.sprite.vel = createVector(cos(this.sprite.rotation), sin(this.sprite.rotation)).setMag(
-            this.speed,
+            this.maxSpeed,
         );
         this.sprite.collider = "k";
-        this.maxSpeed = 1.5;
         this.trail = [];
-
+        this.right = false; // FIXME
+        this.zigzag = false;
         this.rays = {
             "-90": new Ray(this.sprite.pos, this.sprite.rotation - PI / 2),
             "-45": new Ray(this.sprite.pos, this.sprite.rotation - PI / 4),
@@ -19,11 +18,11 @@ class Robot {
             45: new Ray(this.sprite.pos, this.sprite.rotation + PI / 4),
             90: new Ray(this.sprite.pos, this.sprite.rotation + PI / 2),
         };
-        this.distances = {};
+        this.pathDistances = {};
         this.solidDistances = {};
-
         this.state = "forward";
-        this.stuckCount = 0;
+        this.frameCounter = 0;
+        this.backtracking = false;
         this.pTrailLeft = {
             x: this.sprite.x,
             y: this.sprite.y + 25,
@@ -32,13 +31,6 @@ class Robot {
             x: this.sprite.x,
             y: this.sprite.y - 25,
         };
-
-        this.changeSide = createButton("change side");
-        this.changeSide.mousePressed(() => {
-            this.right = !this.right;
-        });
-        this.right = true;
-
         this.sprite.draw = () => {
             fill(0);
             circle(0, 0, this.r * 2);
@@ -53,41 +45,99 @@ class Robot {
                 case "wall":
                     fill("#eab308");
                     break;
+                case "uturn":
+                    fill("#d946ef");
+                    break;
             }
             circle(0, 0, this.r * 2 - 10);
             fill(0);
             rectMode(CENTER);
             rect(15, 0, 3, 30);
+            fill("black");
+            text(this.right, 0, 0);
         };
 
         this.sprite.update = () => {
             this.insideMap();
+            this.distances = structuredClone(this.solidDistances);
+            if (this.zigzag) {
+                // Ensure distances reflect the closest obstacle
+                for (const [key, value] of Object.entries(this.pathDistances)) {
+                    this.distances[key] = Math.min(this.distances[key], value);
+                }
+            }
 
+            // Hug the right wall and go forward
             if (this.state === "forward") {
+                // Update sprite velocity
                 this.sprite.vel = createVector(
                     cos(this.sprite.rotation),
                     sin(this.sprite.rotation),
-                ).setMag(this.speed);
-                if (this.solidDistances["0"] < 30) {
-                    this.state = "wall";
-                    this.sprite.speed = 0;
-                    console.log("wall");
+                ).setMag(this.maxSpeed);
+
+                if (this.zigzag && !this.backtracking) {
+                    this.right = this.sprite.rotation < 0;
                 }
+
+                // Check for wall in front, u-turn if zigzagging, otherwise turn left
+                if (this.distances["0"] < 35 && this.distances["0"] >= 25) {
+                    if (this.zigzag) {
+                        console.log("WALL");
+                        this.backtracking = false;
+                        this.frameCounter = 0;
+                        this.turnRight = this.sprite.rotation > 0;
+                        if (this.distances["-90"] < 75 && this.distances["90"] < 75) {
+                            console.log("stucc");
+                            this.state = "stuck";
+                            this.backtracking = true;
+                            this.right = !this.right;
+                        } else {
+                            if (this.distances["-90"] > 75 && this.distances["90"] > 75) {
+                                // Both sides open, turn to the True Right
+                                console.log("both open");
+                                this.turnRight = this.sprite.rotation < 0;
+                            } else if (this.distances["-90"] > 75) {
+                                console.log("left open");
+                                this.turnRight = false;
+                            } else if (this.distances["90"] > 75) {
+                                console.log("right open");
+                                this.turnRight = true;
+                            } else {
+                                console.log("OHNO");
+                            }
+                            this.state = "uturn";
+                        }
+                    } else {
+                        this.state = "wall";
+                        this.sprite.speed = 0;
+                        console.log("wall");
+                    }
+                }
+
+                // We are in a corridor that is too narrow, turn around
                 if (this.solidDistances["-45"] < 30 && this.solidDistances["45"] < 50) {
-                    // squeezed
                     this.state = "stuck";
-                    this.stuckCount = 0;
+                    this.frameCounter = 0;
                     console.log("stuck");
                 }
+
+                // Hug the right wall
                 let error45 = this.distances[this.right ? "45" : "-45"] - 42.426 || 0;
                 let error90 = this.distances[this.right ? "90" : "-90"] - 30 || 0;
-                this.rotate(0.005 * min(error45, error90));
-                // this.rotate(0.005 * error45);
+                if (!this.right) {
+                    error45 *= -1;
+                    error90 *= -1;
+                }
+                if (this.zigzag) {
+                    this.rotate(0.003 * error45);
+                } else {
+                    this.rotate(0.007 * min(error45, error90));
+                }
             } else if (this.state === "stuck") {
                 this.sprite.speed = 0;
                 this.rotate(-PI / 60);
-                this.stuckCount++;
-                if (this.stuckCount > 60) {
+                this.frameCounter++;
+                if (this.frameCounter > 60) {
                     console.log("unstuck");
                     this.state = "forward";
                 }
@@ -98,18 +148,42 @@ class Robot {
                     this.state = "forward";
                     console.log("forward");
                 }
+            } else if (this.state === "uturn") {
+                if (this.frameCounter < 30 || (this.frameCounter >= 55 && this.frameCounter < 85)) {
+                    this.sprite.speed = 0;
+                    this.rotate(this.turnRight ? PI / 60 : -PI / 60);
+                } else {
+                    this.sprite.speed = this.maxSpeed;
+                    this.sprite.vel = createVector(
+                        cos(this.sprite.rotation),
+                        sin(this.sprite.rotation),
+                    ).setMag(this.sprite.speed);
+                }
+                if (this.frameCounter >= 110) {
+                    this.state = "forward";
+                }
+                this.frameCounter++;
+            }
+            if (
+                !this.zigzag &&
+                this.sprite.x > width - 40 &&
+                this.sprite.y > 40 &&
+                this.sprite.y < 100
+            ) {
+                console.log("Switching to zigzag mode");
+                this.zigzag = true;
             }
 
             if (frameCount % 5 === 0) {
                 this.trail.push({ x: this.sprite.x, y: this.sprite.y });
             }
             if (frameCount % 15 === 0) {
-                let leftEdge = createVector(1, 1);
+                const leftEdge = createVector(1, 1);
                 leftEdge.setHeading(this.sprite.rotation - HALF_PI);
-                leftEdge.setMag(25);
-                let rightEdge = createVector(1, 1);
+                leftEdge.setMag(20);
+                const rightEdge = createVector(1, 1);
                 rightEdge.setHeading(this.sprite.rotation + HALF_PI);
-                rightEdge.setMag(25);
+                rightEdge.setMag(20);
                 if (this.pTrailLeft && this.pTrailRight) {
                     floorPlan.walls.push(
                         new Wall(
@@ -145,7 +219,7 @@ class Robot {
     rotate(angle) {
         this.sprite.rotation += angle;
         this.sprite.vel.rotate(angle);
-        for (let [_, ray] of Object.entries(this.rays)) {
+        for (const [_, ray] of Object.entries(this.rays)) {
             ray.direction.rotate(angle);
         }
     }
@@ -166,61 +240,50 @@ class Robot {
     }
 
     show() {
-        for (let trail of this.trail) {
+        for (const trail of this.trail) {
             noStroke();
             fill(255);
-            circle(trail.x, trail.y, this.r * 2 - 10);
+            circle(trail.x, trail.y, this.r * 2);
         }
     }
 
     look(walls) {
-        for (let [angle, ray] of Object.entries(this.rays)) {
-            let overallClosest = p5.Vector.add(
-                this.sprite.pos,
-                p5.Vector.setMag(ray.direction, 100),
-            );
+        for (const [angle, ray] of Object.entries(this.rays)) {
+            let pathClosest = p5.Vector.add(this.sprite.pos, p5.Vector.setMag(ray.direction, 100));
             let solidClosest = p5.Vector.add(this.sprite.pos, p5.Vector.setMag(ray.direction, 100));
-            let overallRecord = 100;
+            let pathRecord = 100;
             let solidRecord = 100;
-            for (let wall of walls) {
+            for (const wall of walls) {
                 const pt = ray.cast(wall);
                 if (pt) {
                     const d = p5.Vector.dist(this.sprite.pos, pt);
-                    if (d < overallRecord) {
-                        if (!wall.fixed && d < 25) {
-                            break;
-                        }
-                        overallClosest = pt;
-                        overallRecord = d;
-                    }
                     if (wall.fixed && d < solidRecord) {
                         solidClosest = pt;
                         solidRecord = d;
+                    } else if (!wall.fixed && d < pathRecord) {
+                        pathClosest = pt;
+                        pathRecord = d;
                     }
                 }
                 stroke("#0f0");
-                strokeWeight(4);
+                strokeWeight(2);
                 line(wall.a.x, wall.a.y, wall.b.x, wall.b.y);
             }
 
-            if (overallClosest) {
-                strokeWeight(2);
-                stroke("blue");
-                line(ray.origin.x, ray.origin.y, overallClosest.x, overallClosest.y);
-                strokeWeight(0);
-                fill("red");
-                if (overallRecord < 100) {
-                    circle(overallClosest.x, overallClosest.y, 8);
-                }
+            strokeWeight(2);
+            stroke("blue");
+            line(ray.origin.x, ray.origin.y, pathClosest.x, pathClosest.y);
+            line(ray.origin.x, ray.origin.y, solidClosest.x, solidClosest.y);
+            strokeWeight(0);
+            fill("red");
+            if (pathRecord < 100) {
+                circle(pathClosest.x, pathClosest.y, 8);
             }
-            if (solidClosest) {
-                strokeWeight(0);
-                fill("purple");
-                if (solidRecord < 100) {
-                    circle(solidClosest.x, solidClosest.y, 8);
-                }
+            fill("purple");
+            if (solidRecord < 100) {
+                circle(solidClosest.x, solidClosest.y, 8);
             }
-            this.distances[angle] = overallRecord;
+            this.pathDistances[angle] = pathRecord;
             this.solidDistances[angle] = solidRecord;
         }
     }

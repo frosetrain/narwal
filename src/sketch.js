@@ -18,11 +18,4 @@ function draw() {
 
     robot.show();
     robot.look(floorPlan.walls);
-
-    // if (frameCount == 60 * 60 * 2) {
-    // createP("done!");
-    // noLoop();
-    // }
-
-    text(floor(frameCount / 60), 10, 10);
 }
