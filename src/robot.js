@@ -75,6 +75,7 @@ class Robot {
                     sin(this.sprite.rotation),
                 ).setMag(this.maxSpeed);
 
+                // Align to the correct side based on robot direction
                 if (this.zigzag && !this.backtracking) {
                     this.right = this.sprite.rotation < 0;
                 }
@@ -85,6 +86,7 @@ class Robot {
                     (!this.backtracking && this.distances["0"] < 35 && this.distances["0"] >= 25)
                 ) {
                     if (this.zigzag) {
+                        // Hit a wall, do something
                         console.log("WALL");
                         this.backtracking = false;
                         this.frameCounter = 0;
@@ -95,24 +97,29 @@ class Robot {
                             this.distances["90"] < 75 &&
                             this.distances["90"] >= 25
                         ) {
+                            // Stuck, start backtracking
                             console.log("stucc");
                             this.state = "stuck";
                             this.backtracking = true;
                             this.right = !this.right;
                         } else {
                             if (this.distances["-90"] > 75 && this.distances["90"] <= 75) {
+                                // Left side open
                                 console.log("left open");
                                 this.turnRight = false;
                             } else if (this.distances["90"] > 75 && this.distances["-90"] <= 75) {
+                                // Right side open
                                 console.log("right open");
                                 this.turnRight = true;
                             } else {
                                 // Both sides open, turn to the non-hugging side
                                 this.turnRight = !this.right;
                             }
+                            // Turn around because yes
                             this.state = "uturn";
                         }
                     } else {
+                        // In first layer, turn left
                         this.state = "wall";
                         this.sprite.speed = 0;
                         console.log("wall");
@@ -134,15 +141,19 @@ class Robot {
                     error90 *= -1;
                 }
                 if (this.zigzag) {
+                    // Align only using 45 in zigzag mode to avoid getting stuck
                     this.rotate(0.003 * error45);
                 } else {
+                    // Align using both to avoid cutting corners
                     this.rotate(0.007 * min(error45, error90));
                 }
             } else if (this.state === "stuck") {
                 if (this.frameCounter < 60) {
+                    // Rotate in place
                     this.sprite.speed = 0;
                     this.rotate(-PI / 60);
                 } else if (this.frameCounter < 80 && this.zigzag) {
+                    // Go forward slightly
                     this.sprite.speed = this.maxSpeed;
                     this.sprite.vel = createVector(
                         cos(this.sprite.rotation),
@@ -154,6 +165,7 @@ class Robot {
                 }
                 this.frameCounter++;
             } else if (this.state === "wall") {
+                // Turn until front is clear
                 this.sprite.speed = 0;
                 this.rotate(-PI / 60);
                 if (this.distances["0"] > 80) {
@@ -161,10 +173,13 @@ class Robot {
                     console.log("forward");
                 }
             } else if (this.state === "uturn") {
+                // U-turn
                 if (this.frameCounter < 30 || (this.frameCounter >= 55 && this.frameCounter < 85)) {
+                    // Turn in place at the start and end
                     this.sprite.speed = 0;
                     this.rotate(this.turnRight ? PI / 60 : -PI / 60);
                 } else {
+                    // Move forward a bit between turns
                     this.sprite.speed = this.maxSpeed;
                     this.sprite.vel = createVector(
                         cos(this.sprite.rotation),
@@ -182,6 +197,7 @@ class Robot {
                 this.sprite.y > 40 &&
                 this.sprite.y < 100
             ) {
+                // Finished with first layer and returned to start
                 console.log("Switching to zigzag mode");
                 this.zigzag = true;
             }
@@ -190,6 +206,7 @@ class Robot {
                 this.trail.push({ x: this.sprite.x, y: this.sprite.y });
             }
             if (frameCount % 15 === 0) {
+                // Add past path to walls
                 const leftEdge = createVector(1, 1);
                 leftEdge.setHeading(this.sprite.rotation - HALF_PI);
                 leftEdge.setMag(20);
@@ -197,6 +214,7 @@ class Robot {
                 rightEdge.setHeading(this.sprite.rotation + HALF_PI);
                 rightEdge.setMag(20);
                 if (this.pTrailLeft && this.pTrailRight) {
+                    // Create walls and push them
                     floorPlan.walls.push(
                         new Wall(
                             this.pTrailLeft.x,
@@ -237,6 +255,7 @@ class Robot {
     }
 
     insideMap() {
+        // Keep the robot inside the map
         if (this.sprite.x > width - this.r) {
             this.sprite.x = width - this.r;
         }
@@ -260,11 +279,12 @@ class Robot {
     }
 
     look(walls) {
+        // Raycasting
         for (const [angle, ray] of Object.entries(this.rays)) {
             let pathClosest = p5.Vector.add(this.sprite.pos, p5.Vector.setMag(ray.direction, 100));
             let solidClosest = p5.Vector.add(this.sprite.pos, p5.Vector.setMag(ray.direction, 100));
-            let pathRecord = 100;
-            let solidRecord = 100;
+            let pathRecord = 100; // Past paths
+            let solidRecord = 100; // Actual walls
             for (const wall of walls) {
                 const pt = ray.cast(wall);
                 if (pt) {
@@ -282,12 +302,14 @@ class Robot {
                 line(wall.a.x, wall.a.y, wall.b.x, wall.b.y);
             }
 
+            // Draw rays
             strokeWeight(2);
             stroke("blue");
             line(ray.origin.x, ray.origin.y, pathClosest.x, pathClosest.y);
             line(ray.origin.x, ray.origin.y, solidClosest.x, solidClosest.y);
             strokeWeight(0);
             fill("red");
+            // Draw intersections
             if (pathRecord < 100) {
                 circle(pathClosest.x, pathClosest.y, 8);
             }
