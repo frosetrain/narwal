@@ -9,7 +9,7 @@ class Robot {
         );
         this.sprite.collider = "k";
         this.trail = [];
-        this.right = false; // FIXME
+        this.right = true;
         this.zigzag = false;
         this.rays = {
             "-90": new Ray(this.sprite.pos, this.sprite.rotation - PI / 2),
@@ -80,30 +80,35 @@ class Robot {
                 }
 
                 // Check for wall in front, u-turn if zigzagging, otherwise turn left
-                if (this.distances["0"] < 35 && this.distances["0"] >= 25) {
+                if (
+                    (this.backtracking && this.solidDistances["0"] < 50) ||
+                    (!this.backtracking && this.distances["0"] < 35 && this.distances["0"] >= 25)
+                ) {
                     if (this.zigzag) {
                         console.log("WALL");
                         this.backtracking = false;
                         this.frameCounter = 0;
                         this.turnRight = this.sprite.rotation > 0;
-                        if (this.distances["-90"] < 75 && this.distances["90"] < 75) {
+                        if (
+                            this.distances["-90"] < 75 &&
+                            this.distances["-90"] >= 25 &&
+                            this.distances["90"] < 75 &&
+                            this.distances["90"] >= 25
+                        ) {
                             console.log("stucc");
                             this.state = "stuck";
                             this.backtracking = true;
                             this.right = !this.right;
                         } else {
-                            if (this.distances["-90"] > 75 && this.distances["90"] > 75) {
-                                // Both sides open, turn to the True Right
-                                console.log("both open");
-                                this.turnRight = this.sprite.rotation < 0;
-                            } else if (this.distances["-90"] > 75) {
+                            if (this.distances["-90"] > 75 && this.distances["90"] <= 75) {
                                 console.log("left open");
                                 this.turnRight = false;
-                            } else if (this.distances["90"] > 75) {
+                            } else if (this.distances["90"] > 75 && this.distances["-90"] <= 75) {
                                 console.log("right open");
                                 this.turnRight = true;
                             } else {
-                                console.log("OHNO");
+                                // Both sides open, turn to the non-hugging side
+                                this.turnRight = !this.right;
                             }
                             this.state = "uturn";
                         }
@@ -134,13 +139,20 @@ class Robot {
                     this.rotate(0.007 * min(error45, error90));
                 }
             } else if (this.state === "stuck") {
-                this.sprite.speed = 0;
-                this.rotate(-PI / 60);
-                this.frameCounter++;
-                if (this.frameCounter > 60) {
+                if (this.frameCounter < 60) {
+                    this.sprite.speed = 0;
+                    this.rotate(-PI / 60);
+                } else if (this.frameCounter < 80 && this.zigzag) {
+                    this.sprite.speed = this.maxSpeed;
+                    this.sprite.vel = createVector(
+                        cos(this.sprite.rotation),
+                        sin(this.sprite.rotation),
+                    ).setMag(this.sprite.speed);
+                } else {
                     console.log("unstuck");
                     this.state = "forward";
                 }
+                this.frameCounter++;
             } else if (this.state === "wall") {
                 this.sprite.speed = 0;
                 this.rotate(-PI / 60);
@@ -159,7 +171,7 @@ class Robot {
                         sin(this.sprite.rotation),
                     ).setMag(this.sprite.speed);
                 }
-                if (this.frameCounter >= 110) {
+                if (this.frameCounter >= 100) {
                     this.state = "forward";
                 }
                 this.frameCounter++;

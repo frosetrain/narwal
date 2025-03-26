@@ -17,18 +17,19 @@ class FloorPlan {
     }
 
     createObstacles() {
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 7; i++) {
             let x = random(width);
             let y = random(height);
-            let w = random(100, 200);
-            let h = random(100, 200);
-            if (y - h / 2 < 100 && x + w / 2 > width - 100) {
-                x = random(width - w - 100);
+            let w = random(150, 250);
+            let h = random(150, 250);
+            if (y - h / 2 < 100 && x + w / 2 > width - 150) {
+                x = random(width - w - 150);
             }
             this.addObstacle(x, y, w, h);
         }
         // this.addObstacle(300, 300, 100, 600);
-        // this.addObstacle(550, 100, 50, 200);
+        // this.addObstacle(600, 100, 50, 200);
+        // this.addObstacle(700, 300, 200, 50);
         this.walls.push(new Wall(0, 0, width, 0));
         this.walls.push(new Wall(width, 0, width, height));
         this.walls.push(new Wall(width, height, 0, height));
