@@ -17,11 +17,11 @@ class FloorPlan {
     }
 
     createObstacles() {
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 5; i++) {
             let x = random(width);
             let y = random(height);
-            let w = random(150, 250);
-            let h = random(150, 250);
+            let w = random(100, 220);
+            let h = random(100, 220);
             if (y - h / 2 < 100 && x + w / 2 > width - 150) {
                 x = random(width - w - 150);
             }
